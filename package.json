@@ -1,0 +1,9 @@
+{
+  "name": "iwig-wholesale-portal",
+  "version": "1.0.0",
+  "description": "iWIG B2B wholesale portal · GoHighLevel-powered",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  }
+}

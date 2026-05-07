@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>iWIG · Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="admin-body">
+
+  <!-- LOGIN GATE -->
+  <section class="route active" id="adminLoginRoute">
+    <div class="admin-login">
+      <p class="eyebrow">Admin Access</p>
+      <h1 class="display">iWIG · Admin</h1>
+      <form class="form" id="adminLoginForm">
+        <label>
+          <span class="label">Password</span>
+          <input type="password" name="password" required autofocus />
+        </label>
+        <button type="submit" class="btn btn-primary btn-block">Enter</button>
+        <p class="form-msg" id="adminLoginMsg"></p>
+      </form>
+      <p class="alt-link"><a href="/">← Back to site</a></p>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="route" id="adminDashRoute">
+    <nav class="admin-nav">
+      <div class="admin-nav-inner">
+        <span class="logo">iWIG · Admin</span>
+        <div class="admin-tabs">
+          <button class="tab active" data-tab="applications">Applications</button>
+          <button class="tab" data-tab="members">Approved Members</button>
+          <button class="tab" data-tab="products">Products</button>
+          <button class="tab tab-logout" id="adminLogout">Logout</button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- TAB: APPLICATIONS -->
+    <div class="tab-panel active" data-panel="applications">
+      <div class="page-header">
+        <p class="eyebrow">Pending Review</p>
+        <h1 class="display">Applications</h1>
+        <p class="subtitle">Approve or deny new wholesale applicants.</p>
+      </div>
+      <div class="page-body">
+        <div class="applications-list" id="appList">
+          <div class="loader">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: APPROVED MEMBERS -->
+    <div class="tab-panel" data-panel="members">
+      <div class="page-header">
+        <p class="eyebrow">Active Accounts</p>
+        <h1 class="display">Approved Members</h1>
+        <p class="subtitle">Revoke access if needed.</p>
+      </div>
+      <div class="page-body">
+        <div class="applications-list" id="memberList">
+          <div class="loader">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: PRODUCTS -->
+    <div class="tab-panel" data-panel="products">
+      <div class="page-header">
+        <p class="eyebrow">Inventory</p>
+        <h1 class="display">Products</h1>
+        <p class="subtitle">Products are managed inside GoHighLevel · Payments → Products. This view is a live mirror.</p>
+        <a class="btn btn-ghost btn-sm" href="https://app.gohighlevel.com" target="_blank" rel="noopener">Open GHL →</a>
+      </div>
+      <div class="page-body">
+        <div class="admin-product-grid" id="adminProductGrid">
+          <div class="loader">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="/admin.js"></script>
+</body>
+</html>
