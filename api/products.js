@@ -38,7 +38,7 @@ async function fetchPriceForProduct(productId, locationId) {
     // pick the first one_time price, fall back to first whatever
     const def = prices.find(p => p.type === 'one_time') || prices[0];
     return {
-      amount:   def.amount,            // in CENTS in GHL
+      amount:   def.amount,            // GHL returns dollar value directly (no cents conversion)
       currency: def.currency || 'USD',
       priceId:  def._id || def.id,
       compareAt: def.compareAtPrice || null,
@@ -73,8 +73,8 @@ module.exports = async (req, res) => {
       const pid = p._id || p.id;
       const price = await fetchPriceForProduct(pid, locationId);
 
-      // GHL stores price in cents — divide if number, else 0
-      const dollars = (typeof price.amount === 'number') ? price.amount / 100 : 0;
+      // GHL returns amount as the dollar value directly — no /100 conversion
+      const dollars = (typeof price.amount === 'number') ? price.amount : 0;
 
       return {
         id: pid,
