@@ -73,10 +73,14 @@
     <!-- TAB: PRODUCTS -->
     <div class="tab-panel" data-panel="products">
       <div class="page-header">
-        <p class="eyebrow">Inventory</p>
-        <h1 class="display">Products</h1>
-        <p class="subtitle">Products are managed inside GoHighLevel · Payments → Products. This view is a live mirror.</p>
-        <a class="btn btn-ghost btn-sm" href="https://app.gohighlevel.com" target="_blank" rel="noopener">Open GHL →</a>
+        <div class="page-header-row">
+          <div>
+            <p class="eyebrow">Inventory</p>
+            <h1 class="display">Products</h1>
+            <p class="subtitle">Create, edit, and remove products in your catalog.</p>
+          </div>
+          <button class="btn btn-primary btn-sm" id="addProductBtn">+ Add Product</button>
+        </div>
       </div>
       <div class="page-body">
         <div class="admin-product-grid" id="adminProductGrid">
@@ -85,6 +89,58 @@
       </div>
     </div>
   </section>
+
+  <!-- PRODUCT MODAL -->
+  <div class="modal-overlay" id="productModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add Product</h3>
+        <button class="modal-close" id="modalClose" type="button">&#215;</button>
+      </div>
+      <form class="form" id="productForm">
+        <label>
+          <span class="label">Name *</span>
+          <input type="text" id="productName" required autocomplete="off" />
+        </label>
+        <label>
+          <span class="label">Description</span>
+          <textarea id="productDescription"></textarea>
+        </label>
+        <div class="form-row">
+          <label>
+            <span class="label">Price (USD) *</span>
+            <input type="number" id="productPrice" min="0" step="0.01" required />
+          </label>
+          <label>
+            <span class="label">Stock Qty</span>
+            <input type="number" id="productQty" min="0" step="1" placeholder="Unlimited" />
+          </label>
+        </div>
+        <label>
+          <span class="label">Product Type *</span>
+          <select id="productType">
+            <option value="DIGITAL">Digital</option>
+            <option value="PHYSICAL">Physical</option>
+            <option value="SERVICE">Service</option>
+          </select>
+        </label>
+        <label>
+          <span class="label">Main Image URL</span>
+          <input type="url" id="productImage" placeholder="https://…" />
+        </label>
+        <div class="img-extra-section">
+          <span class="label">Additional Images</span>
+          <div id="additionalImages"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="addImageBtn" style="margin-top:0.5rem">+ Add Image</button>
+        </div>
+        <p class="form-msg" id="productFormMsg"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost btn-sm" id="modalCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="productSaveBtn">Save Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script src="/admin.js"></script>
 </body>

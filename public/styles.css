@@ -651,3 +651,74 @@ img { max-width: 100%; display: block; }
 .admin-product-card-body { padding: 1rem; }
 .admin-product-card-body h4 { font-family: var(--serif); font-size: 1rem; font-weight: 500; margin-bottom: 0.3rem; }
 .admin-product-card-body p { font-size: 0.82rem; color: var(--ink-soft); }
+.product-card-actions {
+  display: flex; gap: 0.4rem; margin-top: 0.75rem;
+  padding-top: 0.75rem; border-top: 1px solid var(--line-soft);
+}
+
+/* ---- page header with action button ---- */
+.page-header-row {
+  display: flex; justify-content: space-between;
+  align-items: flex-end; flex-wrap: wrap; gap: 1.5rem;
+}
+
+/* ---- Modal ---- */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(26,25,22,.52);
+  backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+  padding: 1.5rem;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--bg); border: 1px solid var(--line);
+  border-radius: 2px; width: 100%; max-width: 520px;
+  box-shadow: 0 24px 64px rgba(26,25,22,.18);
+  max-height: 90vh; overflow-y: auto;
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1.6rem 1.8rem 0;
+}
+.modal-header h3 {
+  font-family: var(--serif); font-size: 1.5rem; font-weight: 500;
+}
+.modal-close {
+  background: none; border: 0; font-size: 1.5rem;
+  color: var(--ink-soft); padding: 0 0.3rem; line-height: 1;
+}
+.modal-close:hover { color: var(--ink); }
+.modal .form {
+  padding: 1.5rem 1.8rem 1.8rem; max-width: none;
+}
+.modal-actions {
+  display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 0.5rem;
+}
+
+/* ---- additional images in modal ---- */
+.img-extra-section { display: flex; flex-direction: column; gap: 0; }
+.img-extra-section .label { display: block; margin-bottom: 0.5rem; }
+.img-input-row {
+  display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;
+}
+.img-input-row input {
+  flex: 1; padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line); background: var(--bg);
+  border-radius: 1px; font: inherit; font-size: 0.95rem; color: var(--ink);
+}
+.img-input-row input:focus { outline: 0; border-color: var(--ink); }
+.img-remove-btn {
+  background: none; border: 1px solid var(--line); color: var(--ink-soft);
+  width: 32px; height: 32px; border-radius: 1px;
+  font-size: 1rem; line-height: 1; flex-shrink: 0;
+}
+.img-remove-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+/* ---- image count badge on product card ---- */
+.img-count-badge {
+  position: absolute; bottom: 6px; right: 6px;
+  background: rgba(26,25,22,.65); color: #fff;
+  font-size: 0.68rem; font-weight: 500; letter-spacing: 0.05em;
+  padding: 2px 7px; border-radius: 10px;
+}

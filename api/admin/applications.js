@@ -37,17 +37,19 @@ module.exports = async (req, res) => {
         if (f.id) m[f.id] = f.value || f.fieldValue;
         return m;
       }, {});
+      const ownerContact = [c.firstName, c.lastName].filter(Boolean).join(' ').trim();
       return {
         id: c.id,
+        ownerContact,
         firstName: c.firstName,
-        lastName: c.lastName,
+        lastName:  c.lastName,
         email: c.email,
         phone: c.phone,
-        businessName: c.companyName,
-        website: c.website,
-        businessType: process.env.CF_BUSINESS_TYPE ? cf[process.env.CF_BUSINESS_TYPE] : '',
-        resellerId:   process.env.CF_RESELLER_ID   ? cf[process.env.CF_RESELLER_ID]   : '',
-        notes:        process.env.CF_NOTES         ? cf[process.env.CF_NOTES]         : '',
+        businessName:    c.companyName,
+        businessAddress: c.address1 || '',
+        businessType:    process.env.CF_BUSINESS_TYPE     ? cf[process.env.CF_BUSINESS_TYPE]     : '',
+        yearsInBusiness: process.env.CF_YEARS_IN_BUSINESS ? cf[process.env.CF_YEARS_IN_BUSINESS] : '',
+        notes:           process.env.CF_NOTES             ? cf[process.env.CF_NOTES]             : '',
         tags: c.tags || [],
         status,
         createdAt: c.dateAdded || c.createdAt

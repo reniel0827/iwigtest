@@ -24,13 +24,16 @@ module.exports = async (req, res) => {
 
   try {
     const {
-      firstName, lastName, email, phone,
-      businessName, businessType, resellerId, website, notes
+      ownerContact, email, phone,
+      businessName, businessType, businessAddress, yearsInBusiness, notes
     } = req.body || {};
 
-    // ====== validate ======
-    if (!firstName || !lastName || !email) {
-      return res.status(400).json({ error: 'First name, last name and email are required.' });
+    // ====== validate (all 8 fields required) ======
+    const required = { businessName, ownerContact, businessType, email, phone, businessAddress, yearsInBusiness, notes };
+    for (const [key, val] of Object.entries(required)) {
+      if (!val || !String(val).trim()) {
+        return res.status(400).json({ error: `${key} is required.` });
+      }
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
       return res.status(400).json({ error: 'Please enter a valid email address.' });
@@ -42,15 +45,21 @@ module.exports = async (req, res) => {
     const cleanEmail = String(email).trim().toLowerCase();
     const cleanPhone = normalizePhone(phone);
 
+    // Split owner contact into first/last for GHL native fields
+    const ownerTrimmed = String(ownerContact).trim().replace(/\s+/g, ' ');
+    const ownerParts = ownerTrimmed.split(' ');
+    const firstName = ownerParts[0];
+    const lastName  = ownerParts.slice(1).join(' ') || '';
+
     const payload = {
       locationId,
-      firstName:   String(firstName).trim(),
-      lastName:    String(lastName).trim(),
-      name:        `${String(firstName).trim()} ${String(lastName).trim()}`,
+      firstName,
+      lastName,
+      name:        ownerTrimmed,
       email:       cleanEmail,
       phone:       cleanPhone,
-      companyName: businessName ? String(businessName).trim() : undefined,
-      website:     website ? String(website).trim() : undefined,
+      companyName: String(businessName).trim(),
+      address1:    String(businessAddress).trim(),
       tags:        [TAGS.PENDING, TAGS.APPLICANT],
       source:      'iWIG Wholesale Portal'
     };
@@ -60,9 +69,9 @@ module.exports = async (req, res) => {
 
     // optional custom fields (only sent if env IDs configured)
     const cf = [];
-    if (process.env.CF_BUSINESS_TYPE && businessType) cf.push({ id: process.env.CF_BUSINESS_TYPE, value: businessType });
-    if (process.env.CF_RESELLER_ID   && resellerId)   cf.push({ id: process.env.CF_RESELLER_ID,   value: resellerId   });
-    if (process.env.CF_NOTES         && notes)        cf.push({ id: process.env.CF_NOTES,         value: notes        });
+    if (process.env.CF_BUSINESS_TYPE      && businessType)    cf.push({ id: process.env.CF_BUSINESS_TYPE,      value: businessType });
+    if (process.env.CF_YEARS_IN_BUSINESS  && yearsInBusiness) cf.push({ id: process.env.CF_YEARS_IN_BUSINESS,  value: yearsInBusiness });
+    if (process.env.CF_NOTES              && notes)           cf.push({ id: process.env.CF_NOTES,              value: notes });
     if (cf.length) payload.customFields = cf;
 
     console.log('[signup] creating contact:', { email: cleanEmail, name: payload.name });
@@ -91,16 +100,18 @@ module.exports = async (req, res) => {
             method: 'POST',
             body: { tags: [TAGS.PENDING, TAGS.APPLICANT] }
           }).catch(e => console.log('[signup] re-tag failed:', e.message));
-          // optionally update name/phone/company if missing
+          // refresh fields on the existing contact (including custom fields, so resubmits don't lose data)
+          const updateBody = {
+            firstName:   payload.firstName,
+            lastName:    payload.lastName,
+            phone:       payload.phone,
+            companyName: payload.companyName,
+            address1:    payload.address1
+          };
+          if (payload.customFields) updateBody.customFields = payload.customFields;
           await ghlRequest(`/contacts/${existing.id}`, {
             method: 'PUT',
-            body: {
-              firstName: payload.firstName,
-              lastName:  payload.lastName,
-              phone:     payload.phone,
-              companyName: payload.companyName,
-              website:   payload.website
-            }
+            body: updateBody
           }).catch(e => console.log('[signup] update failed:', e.message));
         } else {
           // not a duplicate — bubble the real error
