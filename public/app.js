@@ -8,7 +8,8 @@
 const state = {
   user: null,        // { email, firstName, lastName, contactId }
   products: [],
-  cart: JSON.parse(localStorage.getItem('iwig_cart') || '[]')
+  cart: JSON.parse(localStorage.getItem('iwig_cart') || '[]'),
+  currentProductId: null  // set when navigating to product detail page
 };
 
 const MIN_ORDER = 5500;
@@ -58,6 +59,13 @@ function go(page) {
   if (page === 'portal')   loadProducts();
   if (page === 'cart')     renderCart();
   if (page === 'checkout') startCheckout();
+  if (page === 'product')  loadProductDetail(state.currentProductId);
+}
+
+function openProduct(id) {
+  if (!state.user) return go('login');
+  state.currentProductId = id;
+  go('product');
 }
 
 document.addEventListener('click', (e) => {
@@ -94,6 +102,19 @@ $('#applyForm').addEventListener('submit', async (e) => {
   msg.textContent = ''; msg.className = 'form-msg';
 
   const data = Object.fromEntries(new FormData(form).entries());
+
+  if (!data.password || data.password.length < 8) {
+    msg.textContent = 'Password must be at least 8 characters.';
+    msg.classList.add('error');
+    return;
+  }
+  if (data.password !== data.confirmPassword) {
+    msg.textContent = 'Passwords do not match.';
+    msg.classList.add('error');
+    return;
+  }
+  delete data.confirmPassword;
+
   btn.disabled = true; btn.textContent = 'Submitting…';
 
   try {
@@ -124,14 +145,23 @@ $('#loginForm').addEventListener('submit', async (e) => {
   const msg  = $('#loginMsg');
   msg.textContent = ''; msg.className = 'form-msg';
 
-  const email = new FormData(form).get('email').trim().toLowerCase();
+  const fd = new FormData(form);
+  const email = fd.get('email').trim().toLowerCase();
+  const password = fd.get('password') || '';
+
+  if (!password) {
+    msg.textContent = 'Password required.';
+    msg.classList.add('error');
+    return;
+  }
+
   btn.disabled = true; btn.textContent = 'Checking…';
 
   try {
     const res = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
+      body: JSON.stringify({ email, password })
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Login failed.');
@@ -195,46 +225,61 @@ function renderProducts(list) {
     grid.innerHTML = '<div class="loader">No products available yet.</div>';
     return;
   }
-  grid.innerHTML = list.map(p => {
-    const inStock = p.availableQty == null || p.availableQty > 0;
-    return `
-      <article class="product-card" data-id="${p.id}">
-        <div class="product-image ${p.image ? '' : 'no-img'}"
-             ${p.image ? `style="background-image:url('${p.image}')"` : ''}></div>
-        <div class="product-body">
-          <h3 class="product-name">${escapeHtml(p.name)}</h3>
-          <p class="product-desc">${escapeHtml(p.description || '')}</p>
-          <div class="product-meta">
-            <span class="product-price"><span class="currency">$</span>${Number(p.price).toLocaleString()}</span>
-            <span class="product-stock ${inStock ? '' : 'out'}">
-              ${inStock ? (p.availableQty != null ? `${p.availableQty} in stock` : 'In stock') : 'Out of stock'}
-            </span>
-          </div>
-          <div class="add-row">
-            <input type="number" class="qty-input" min="1" value="1" ${inStock ? '' : 'disabled'} />
-            <button class="add-btn" data-add="${p.id}" ${inStock ? '' : 'disabled'}>
-              ${inStock ? 'Add to cart' : 'Sold out'}
-            </button>
-          </div>
-        </div>
-      </article>
-    `;
-  }).join('');
+  grid.innerHTML = list.map(p => productCardHTML(p)).join('');
 }
 
-$('#productGrid').addEventListener('click', (e) => {
+function productCardHTML(p) {
+  const inStock = p.availableQty == null || p.availableQty > 0;
+  return `
+    <article class="product-card" data-id="${p.id}" data-product-open="${p.id}">
+      <div class="product-image ${p.image ? '' : 'no-img'}">
+        ${p.image ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" loading="lazy" referrerpolicy="no-referrer" />` : ''}
+      </div>
+      <div class="product-body">
+        <h3 class="product-name">${escapeHtml(p.name)}</h3>
+        <p class="product-desc">${escapeHtml(p.description || '')}</p>
+        <div class="product-meta">
+          <span class="product-price"><span class="currency">$</span>${Number(p.price).toLocaleString()}</span>
+          <span class="product-stock ${inStock ? '' : 'out'}">
+            ${inStock ? (p.availableQty != null ? `${p.availableQty} in stock` : 'In stock') : 'Out of stock'}
+          </span>
+        </div>
+        <div class="add-row">
+          <input type="number" class="qty-input" min="1" value="1" ${inStock ? '' : 'disabled'} />
+          <button class="add-btn" data-add="${p.id}" ${inStock ? '' : 'disabled'}>
+            ${inStock ? 'Add to cart' : 'Sold out'}
+          </button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function handleProductGridClick(e) {
+  // Add-to-cart button — handle first, don't bubble to card navigation
   const btn = e.target.closest('[data-add]');
-  if (!btn) return;
-  const id = btn.dataset.add;
-  const card = btn.closest('.product-card');
-  const qty = Math.max(1, parseInt(card.querySelector('.qty-input').value) || 1);
-  const product = state.products.find(p => p.id === id);
-  if (!product) return;
-  addToCart(product, qty);
-  btn.classList.add('added');
-  btn.textContent = '✓ Added';
-  setTimeout(() => { btn.classList.remove('added'); btn.textContent = 'Add to cart'; }, 1300);
-});
+  if (btn) {
+    const id = btn.dataset.add;
+    const card = btn.closest('.product-card');
+    const qty = Math.max(1, parseInt(card.querySelector('.qty-input').value) || 1);
+    const product = state.products.find(p => p.id === id);
+    if (!product) return;
+    addToCart(product, qty);
+    btn.classList.add('added');
+    btn.textContent = '✓ Added';
+    setTimeout(() => { btn.classList.remove('added'); btn.textContent = 'Add to cart'; }, 1300);
+    return;
+  }
+  // Ignore clicks on the qty input (don't navigate when typing/clicking quantity)
+  if (e.target.closest('.qty-input')) return;
+  // Otherwise, clicking anywhere on the card opens the product detail
+  const card = e.target.closest('[data-product-open]');
+  if (!card) return;
+  openProduct(card.dataset.productOpen);
+}
+
+$('#productGrid').addEventListener('click', handleProductGridClick);
+$('#relatedGrid').addEventListener('click', handleProductGridClick);
 
 $('#searchBox').addEventListener('input', (e) => {
   const q = e.target.value.toLowerCase().trim();
@@ -244,6 +289,168 @@ $('#searchBox').addEventListener('input', (e) => {
     (p.description || '').toLowerCase().includes(q)
   ));
 });
+
+// ============== PRODUCT DETAIL ==============
+
+async function loadProductDetail(id) {
+  const wrap = $('#productDetail');
+  const relatedWrap = $('#relatedWrap');
+  relatedWrap.hidden = true;
+  wrap.innerHTML = '<div class="loader">Loading…</div>';
+
+  // Make sure products are loaded so we can find this one + show related
+  if (!state.products.length) {
+    try {
+      const res = await fetch('/api/products', { headers: { 'x-iwig-email': state.user.email } });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to load.');
+      state.products = json.products || [];
+    } catch (err) {
+      wrap.innerHTML = `<div class="loader">Error: ${err.message}</div>`;
+      return;
+    }
+  }
+
+  const product = state.products.find(p => p.id === id);
+  if (!product) {
+    wrap.innerHTML = `
+      <div class="loader">
+        Product not found.
+        <br/><a href="#" data-route="portal">← Back to catalog</a>
+      </div>`;
+    return;
+  }
+
+  renderProductDetail(product);
+  renderRelated(product);
+}
+
+function renderProductDetail(p) {
+  const wrap = $('#productDetail');
+  const inStock = p.availableQty == null || p.availableQty > 0;
+  const allImages = [p.image, ...(p.images || [])].filter(Boolean);
+  const hasImages = allImages.length > 0;
+  const multi = allImages.length > 1;
+
+  wrap.innerHTML = `
+    <a href="#" class="back-link" data-route="portal">← Back to catalog</a>
+    <div class="product-detail-grid">
+      <div class="pd-gallery">
+        <div class="pd-slider ${hasImages ? '' : 'no-img'}" id="pdSlider">
+          ${hasImages ? `
+            <div class="pd-slides" id="pdSlides">
+              ${allImages.map((src, i) => `
+                <div class="pd-slide ${i === 0 ? 'active' : ''}" data-slide-index="${i}">
+                  <img src="${escapeHtml(src)}" alt="${escapeHtml(p.name)}" referrerpolicy="no-referrer" ${i === 0 ? '' : 'loading="lazy"'} />
+                </div>
+              `).join('')}
+            </div>
+            ${multi ? `
+              <button class="pd-arrow pd-arrow-prev" type="button" id="pdPrev" aria-label="Previous image">&#8249;</button>
+              <button class="pd-arrow pd-arrow-next" type="button" id="pdNext" aria-label="Next image">&#8250;</button>
+              <div class="pd-dots" id="pdDots">
+                ${allImages.map((_, i) => `
+                  <button class="pd-dot ${i === 0 ? 'active' : ''}" type="button" data-dot-index="${i}" aria-label="Go to image ${i + 1}"></button>
+                `).join('')}
+              </div>
+            ` : ''}
+          ` : ''}
+        </div>
+        ${multi ? `
+          <div class="pd-thumbs">
+            ${allImages.map((src, i) => `
+              <button class="pd-thumb ${i === 0 ? 'active' : ''}" type="button" data-thumb-index="${i}">
+                <img src="${escapeHtml(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" />
+              </button>
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>
+      <div class="pd-info">
+        <p class="eyebrow">Wholesale</p>
+        <h1 class="pd-name">${escapeHtml(p.name)}</h1>
+        <div class="pd-price-row">
+          <span class="product-price"><span class="currency">$</span>${Number(p.price).toLocaleString()}</span>
+          <span class="product-stock ${inStock ? '' : 'out'}">
+            ${inStock ? (p.availableQty != null ? `${p.availableQty} in stock` : 'In stock') : 'Out of stock'}
+          </span>
+        </div>
+        <p class="pd-desc">${escapeHtml(p.description || '')}</p>
+        <div class="pd-add-row">
+          <input type="number" class="qty-input" id="pdQty" min="1" value="1" ${inStock ? '' : 'disabled'} />
+          <button class="add-btn pd-add-btn" id="pdAddBtn" ${inStock ? '' : 'disabled'}>
+            ${inStock ? 'Add to cart' : 'Sold out'}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // ---- Slider behavior ----
+  if (multi) {
+    let currentIndex = 0;
+    const total = allImages.length;
+    const slider = $('#pdSlider');
+    const slides = wrap.querySelectorAll('.pd-slide');
+    const dots = wrap.querySelectorAll('.pd-dot');
+    const thumbs = wrap.querySelectorAll('.pd-thumb');
+
+    const goTo = (idx) => {
+      currentIndex = ((idx % total) + total) % total; // wrap both directions
+      slides.forEach((el, i) => el.classList.toggle('active', i === currentIndex));
+      dots.forEach((el, i) => el.classList.toggle('active', i === currentIndex));
+      thumbs.forEach((el, i) => el.classList.toggle('active', i === currentIndex));
+    };
+
+    $('#pdPrev').addEventListener('click', () => goTo(currentIndex - 1));
+    $('#pdNext').addEventListener('click', () => goTo(currentIndex + 1));
+    dots.forEach(dot => dot.addEventListener('click', () => goTo(Number(dot.dataset.dotIndex))));
+    thumbs.forEach(t => t.addEventListener('click', () => goTo(Number(t.dataset.thumbIndex))));
+
+    // Keyboard arrows when slider is focused or hovered
+    const onKey = (e) => {
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); goTo(currentIndex - 1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); goTo(currentIndex + 1); }
+    };
+    slider.tabIndex = 0;
+    slider.addEventListener('keydown', onKey);
+
+    // Touch swipe
+    let touchStartX = 0, touchEndX = 0;
+    slider.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+    slider.addEventListener('touchend',   (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      const delta = touchEndX - touchStartX;
+      if (Math.abs(delta) < 40) return;
+      goTo(delta < 0 ? currentIndex + 1 : currentIndex - 1);
+    }, { passive: true });
+  }
+
+  // ---- Add to cart ----
+  const addBtn = $('#pdAddBtn');
+  if (addBtn && inStock) {
+    addBtn.addEventListener('click', () => {
+      const qty = Math.max(1, parseInt($('#pdQty').value) || 1);
+      addToCart(p, qty);
+      addBtn.classList.add('added');
+      addBtn.textContent = '✓ Added';
+      setTimeout(() => { addBtn.classList.remove('added'); addBtn.textContent = 'Add to cart'; }, 1300);
+    });
+  }
+}
+
+function renderRelated(currentProduct) {
+  const relatedWrap = $('#relatedWrap');
+  const grid = $('#relatedGrid');
+  const others = state.products.filter(p => p.id !== currentProduct.id);
+  if (!others.length) {
+    relatedWrap.hidden = true;
+    return;
+  }
+  // Show up to 8 other products
+  grid.innerHTML = others.slice(0, 8).map(productCardHTML).join('');
+  relatedWrap.hidden = false;
+}
 
 // ============== CART ==============
 

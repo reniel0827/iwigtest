@@ -2,7 +2,9 @@
    Creates a new contact in GoHighLevel with the wholesale-pending tag.
    Handles duplicates gracefully and returns useful error info. */
 
-const { ghlRequest, env, TAGS } = require('./_ghl');
+const { ghlRequest, env, TAGS, hashPassword } = require('./_ghl');
+
+const MIN_PASSWORD_LEN = 8;
 
 /** Normalize phone to E.164-ish (+digits). GHL is strict about phone format. */
 function normalizePhone(raw) {
@@ -25,7 +27,8 @@ module.exports = async (req, res) => {
   try {
     const {
       ownerContact, email, phone,
-      businessName, businessType, businessAddress, yearsInBusiness, notes
+      businessName, businessType, businessAddress, yearsInBusiness, notes,
+      password
     } = req.body || {};
 
     // ====== validate (all 8 fields required) ======
@@ -38,6 +41,15 @@ module.exports = async (req, res) => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
       return res.status(400).json({ error: 'Please enter a valid email address.' });
     }
+    if (!password || String(password).length < MIN_PASSWORD_LEN) {
+      return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LEN} characters.` });
+    }
+
+    const cfPasswordId = process.env.CF_PASSWORD_HASH;
+    if (!cfPasswordId) {
+      return res.status(500).json({ error: 'Server is not configured for passwords (missing CF_PASSWORD_HASH).' });
+    }
+    const passwordHash = hashPassword(password);
 
     const locationId = env('GHL_LOCATION_ID');
 
@@ -72,7 +84,8 @@ module.exports = async (req, res) => {
     if (process.env.CF_BUSINESS_TYPE      && businessType)    cf.push({ id: process.env.CF_BUSINESS_TYPE,      value: businessType });
     if (process.env.CF_YEARS_IN_BUSINESS  && yearsInBusiness) cf.push({ id: process.env.CF_YEARS_IN_BUSINESS,  value: yearsInBusiness });
     if (process.env.CF_NOTES              && notes)           cf.push({ id: process.env.CF_NOTES,              value: notes });
-    if (cf.length) payload.customFields = cf;
+    cf.push({ id: cfPasswordId, value: passwordHash });
+    payload.customFields = cf;
 
     console.log('[signup] creating contact:', { email: cleanEmail, name: payload.name });
 

@@ -179,6 +179,14 @@
           <span class="label">Tell us about your business</span>
           <textarea name="notes" rows="4" required placeholder="What you sell, monthly volume, target customers…"></textarea>
         </label>
+        <label>
+          <span class="label">Create Password</span>
+          <input type="password" name="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters" />
+        </label>
+        <label>
+          <span class="label">Confirm Password</span>
+          <input type="password" name="confirmPassword" required minlength="8" autocomplete="new-password" />
+        </label>
         <button type="submit" class="btn btn-primary btn-block" id="applyBtn">Submit Application</button>
         <p class="form-msg" id="applyMsg"></p>
       </form>
@@ -190,13 +198,17 @@
     <div class="page-header narrow">
       <p class="eyebrow">Trade Login</p>
       <h1 class="display">Welcome back.</h1>
-      <p class="subtitle">Enter the email used on your application.</p>
+      <p class="subtitle">Enter the email and password from your application.</p>
     </div>
     <div class="page-body narrow">
       <form class="form" id="loginForm">
         <label>
           <span class="label">Email</span>
-          <input type="email" name="email" required />
+          <input type="email" name="email" required autocomplete="email" />
+        </label>
+        <label>
+          <span class="label">Password</span>
+          <input type="password" name="password" required autocomplete="current-password" />
         </label>
         <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Continue</button>
         <p class="form-msg" id="loginMsg"></p>
@@ -224,6 +236,20 @@
     </div>
     <div class="product-grid" id="productGrid">
       <div class="loader">Loading catalog…</div>
+    </div>
+  </section>
+
+  <!-- ========== PRODUCT DETAIL ========== -->
+  <section class="route" data-page="product">
+    <div class="product-detail" id="productDetail">
+      <div class="loader">Loading…</div>
+    </div>
+    <div class="related-wrap" id="relatedWrap" hidden>
+      <div class="related-header">
+        <p class="eyebrow">More from the catalog</p>
+        <h2 class="section-title">Keep browsing.</h2>
+      </div>
+      <div class="product-grid" id="relatedGrid"></div>
     </div>
   </section>
 

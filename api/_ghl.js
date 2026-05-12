@@ -2,6 +2,8 @@
    GoHighLevel API helper · used by all /api/* functions
    =========================================================== */
 
+const crypto = require('crypto');
+
 const GHL_BASE = 'https://services.leadconnectorhq.com';
 const API_VERSION = '2021-07-28';
 
@@ -47,4 +49,32 @@ const TAGS = {
   APPLICANT: 'wholesale-applicant'
 };
 
-module.exports = { ghlRequest, env, TAGS, GHL_BASE, API_VERSION };
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  return `scrypt$${salt}$${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  if (!stored || typeof stored !== 'string' || !stored.startsWith('scrypt$')) return false;
+  const [, salt, hash] = stored.split('$');
+  if (!salt || !hash) return false;
+  const test = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(test, 'hex'));
+  } catch { return false; }
+}
+
+function getCustomFieldValue(contact, fieldId) {
+  if (!contact || !fieldId) return undefined;
+  const cf = contact.customFields || contact.customField || [];
+  for (const f of cf) {
+    if (f && (f.id === fieldId || f.fieldId === fieldId)) return f.value;
+  }
+  return undefined;
+}
+
+module.exports = {
+  ghlRequest, env, TAGS, GHL_BASE, API_VERSION,
+  hashPassword, verifyPassword, getCustomFieldValue
+};

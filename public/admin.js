@@ -191,14 +191,15 @@ function renderAdminProductCard(p) {
   const imgCount = (p.images || []).length;
   return `
     <article class="admin-product-card" data-product-id="${escapeHtml(p.id)}">
-      <div class="product-image ${p.image ? '' : 'no-img'}"
-           ${p.image ? `style="background-image:url('${escapeHtml(p.image)}')"` : ''}>
+      <div class="product-image ${p.image ? '' : 'no-img'}">
+        ${p.image ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" loading="lazy" referrerpolicy="no-referrer" />` : ''}
         ${imgCount ? `<span class="img-count-badge">+${imgCount}</span>` : ''}
       </div>
       <div class="admin-product-card-body">
         <h4>${escapeHtml(p.name)}</h4>
         <p>$${Number(p.price).toLocaleString()} · ${p.availableQty != null ? p.availableQty + ' in stock' : '—'}</p>
         <div class="product-card-actions">
+          <button class="btn btn-ghost btn-sm" data-action="preview" data-product-id="${escapeHtml(p.id)}">Preview</button>
           <button class="btn btn-ghost btn-sm" data-action="edit" data-product-id="${escapeHtml(p.id)}">Edit</button>
           <button class="btn btn-danger" data-action="delete" data-product-id="${escapeHtml(p.id)}">Delete</button>
         </div>
@@ -317,6 +318,10 @@ document.body.addEventListener('click', async (e) => {
     const product = adminState.products.find(p => p.id === productId);
     if (product) openProductModal(product);
 
+  } else if (action === 'preview') {
+    const product = adminState.products.find(p => p.id === productId);
+    if (product) openProductPreview(product);
+
   } else if (action === 'delete') {
     if (!confirm('Delete this product? This cannot be undone.')) return;
     btn.disabled = true;
@@ -339,4 +344,101 @@ function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[c]));
+}
+
+// ============== LIVE PREVIEW (customer's view) ==============
+
+$('#previewClose').addEventListener('click', closePreviewModal);
+$('#previewModal').addEventListener('click', (e) => {
+  if (e.target === $('#previewModal')) closePreviewModal();
+});
+
+function closePreviewModal() {
+  $('#previewModal').classList.remove('active');
+  $('#previewBody').innerHTML = '';
+}
+
+function openProductPreview(p) {
+  const modal = $('#previewModal');
+  const body  = $('#previewBody');
+  const inStock = p.availableQty == null || p.availableQty > 0;
+  const allImages = [p.image, ...(p.images || [])].filter(Boolean);
+  const hasImages = allImages.length > 0;
+  const multi = allImages.length > 1;
+
+  body.innerHTML = `
+    <div class="product-detail-grid preview-grid">
+      <div class="pd-gallery">
+        <div class="pd-slider ${hasImages ? '' : 'no-img'}" id="prevSlider">
+          ${hasImages ? `
+            <div class="pd-slides">
+              ${allImages.map((src, i) => `
+                <div class="pd-slide ${i === 0 ? 'active' : ''}" data-slide-index="${i}">
+                  <img src="${escapeHtml(src)}" alt="${escapeHtml(p.name)}" referrerpolicy="no-referrer" ${i === 0 ? '' : 'loading="lazy"'} />
+                </div>
+              `).join('')}
+            </div>
+            ${multi ? `
+              <button class="pd-arrow pd-arrow-prev" type="button" id="prevPrevBtn" aria-label="Previous image">&#8249;</button>
+              <button class="pd-arrow pd-arrow-next" type="button" id="prevNextBtn" aria-label="Next image">&#8250;</button>
+              <div class="pd-dots">
+                ${allImages.map((_, i) => `
+                  <button class="pd-dot ${i === 0 ? 'active' : ''}" type="button" data-dot-index="${i}" aria-label="Image ${i + 1}"></button>
+                `).join('')}
+              </div>
+            ` : ''}
+          ` : ''}
+        </div>
+        ${multi ? `
+          <div class="pd-thumbs">
+            ${allImages.map((src, i) => `
+              <button class="pd-thumb ${i === 0 ? 'active' : ''}" type="button" data-thumb-index="${i}">
+                <img src="${escapeHtml(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" />
+              </button>
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>
+      <div class="pd-info">
+        <p class="eyebrow">Wholesale</p>
+        <h1 class="pd-name">${escapeHtml(p.name)}</h1>
+        <div class="pd-price-row">
+          <span class="product-price"><span class="currency">$</span>${Number(p.price).toLocaleString()}</span>
+          <span class="product-stock ${inStock ? '' : 'out'}">
+            ${inStock ? (p.availableQty != null ? `${p.availableQty} in stock` : 'In stock') : 'Out of stock'}
+          </span>
+        </div>
+        <p class="pd-desc">${escapeHtml(p.description || '')}</p>
+        <div class="pd-add-row">
+          <input type="number" class="qty-input" min="1" value="1" disabled />
+          <button class="add-btn pd-add-btn" disabled>
+            ${inStock ? 'Add to cart' : 'Sold out'}
+          </button>
+        </div>
+        <p class="preview-note">Buttons are disabled in preview mode.</p>
+      </div>
+    </div>
+  `;
+
+  if (multi) {
+    let currentIndex = 0;
+    const total = allImages.length;
+    const slides = body.querySelectorAll('.pd-slide');
+    const dots   = body.querySelectorAll('.pd-dot');
+    const thumbs = body.querySelectorAll('.pd-thumb');
+
+    const goTo = (idx) => {
+      currentIndex = ((idx % total) + total) % total;
+      slides.forEach((el, i) => el.classList.toggle('active', i === currentIndex));
+      dots.forEach((el, i)   => el.classList.toggle('active', i === currentIndex));
+      thumbs.forEach((el, i) => el.classList.toggle('active', i === currentIndex));
+    };
+
+    $('#prevPrevBtn').addEventListener('click', () => goTo(currentIndex - 1));
+    $('#prevNextBtn').addEventListener('click', () => goTo(currentIndex + 1));
+    dots.forEach(d   => d.addEventListener('click', () => goTo(Number(d.dataset.dotIndex))));
+    thumbs.forEach(t => t.addEventListener('click', () => goTo(Number(t.dataset.thumbIndex))));
+  }
+
+  modal.classList.add('active');
 }

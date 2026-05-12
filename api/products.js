@@ -3,6 +3,7 @@
    Logs every step so price failures are visible in Vercel logs. */
 
 const { ghlRequest, env, TAGS } = require('./_ghl');
+const { unpackDescription } = require('./_desc');
 
 async function isApproved(email, locationId) {
   if (!email) return false;
@@ -76,11 +77,32 @@ module.exports = async (req, res) => {
       // GHL returns amount as the dollar value directly — no /100 conversion
       const dollars = (typeof price.amount === 'number') ? price.amount : 0;
 
+      // Image URLs are embedded in the description as a hidden marker
+      // (see _desc.js). Fall back to legacy fields for older products.
+      const unpacked = unpackDescription(p.description);
+      const medias = (p.medias || []).filter(m => m && (m.url || typeof m === 'string'));
+      const mediaUrls = medias.map(m => (typeof m === 'string' ? m : m.url));
+      const featured = medias.find(m => m && m.isFeatured);
+      const mainImage =
+        unpacked.image ||
+        (featured && featured.url) ||
+        p.image ||
+        p.imageUrl ||
+        p.featuredImage ||
+        mediaUrls[0] ||
+        null;
+      const seen = new Set(mainImage ? [mainImage] : []);
+      const extraImages = [];
+      for (const url of [...unpacked.images, ...mediaUrls]) {
+        if (url && !seen.has(url)) { seen.add(url); extraImages.push(url); }
+      }
+
       return {
         id: pid,
         name: p.name || 'Untitled',
-        description: p.description || '',
-        image: p.image || (p.medias && p.medias[0]?.url) || null,
+        description: unpacked.description,
+        image: mainImage,
+        images: extraImages,
         price: dollars,
         currency: price.currency,
         priceId: price.priceId,

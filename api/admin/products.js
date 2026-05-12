@@ -9,6 +9,7 @@
 
 const { ghlRequest, env } = require('../_ghl');
 const { verifyAdminToken } = require('./_auth');
+const { packDescription, unpackDescription } = require('../_desc');
 
 module.exports = async (req, res) => {
   if (!verifyAdminToken(req)) return res.status(401).json({ error: 'Unauthorized' });
@@ -31,6 +32,22 @@ async function handleGet(req, res, locationId) {
   const data = await ghlRequest('/products/', { query: { locationId, limit: 100 } });
   const raw = data.products || data.data || [];
 
+  // One-time diagnostic so we can see GHL's actual product shape in function
+  // logs (image fields vary by API version / account). Logs the first product
+  // only to keep noise down.
+  if (raw[0]) {
+    const sample = raw[0];
+    console.log('[admin/products] sample GHL product fields:', JSON.stringify({
+      _id: sample._id || sample.id,
+      name: sample.name,
+      image: sample.image,
+      imageUrl: sample.imageUrl,
+      featuredImage: sample.featuredImage,
+      mediasCount: (sample.medias || []).length,
+      mediasSample: (sample.medias || []).slice(0, 2),
+    }).slice(0, 800));
+  }
+
   const products = await Promise.all(raw.map(async (p) => {
     const pid = p._id || p.id;
     let priceAmount = null, priceId = null;
@@ -43,14 +60,32 @@ async function handleGet(req, res, locationId) {
       console.error(`[admin/products] price fetch failed ${pid}:`, err.status, err.message);
     }
 
-    // Separate main image from additional images (medias array)
-    const mainImage = p.image || null;
-    const extraImages = (p.medias || []).map(m => m.url || m).filter(Boolean);
+    // Image URLs are embedded in the description as a hidden marker
+    // (see _desc.js). We also check the legacy fields as a fallback for
+    // older products created before this scheme.
+    const unpacked = unpackDescription(p.description);
+    const medias = (p.medias || []).filter(m => m && (m.url || typeof m === 'string'));
+    const mediaUrls = medias.map(m => (typeof m === 'string' ? m : m.url));
+    const featured = medias.find(m => m && m.isFeatured);
+    const mainImage =
+      unpacked.image ||
+      (featured && featured.url) ||
+      p.image ||
+      p.imageUrl ||
+      p.featuredImage ||
+      mediaUrls[0] ||
+      null;
+    // Merge unpacked extras with media-library extras, dedupe, exclude main
+    const seen = new Set(mainImage ? [mainImage] : []);
+    const extraImages = [];
+    for (const url of [...unpacked.images, ...mediaUrls]) {
+      if (url && !seen.has(url)) { seen.add(url); extraImages.push(url); }
+    }
 
     return {
       id: pid,
       name: p.name,
-      description: p.description || '',
+      description: unpacked.description,
       image: mainImage,
       images: extraImages,
       // GHL returns amount as dollar value directly — no /100 conversion
@@ -73,11 +108,10 @@ async function handleCreate(req, res, locationId) {
 
   const type = VALID_PRODUCT_TYPES.includes(productType) ? productType : 'DIGITAL';
   const productBody = { name, locationId, productType: type };
-  if (description)          productBody.description = description;
+  // Image URLs are embedded in the description as a hidden marker so they
+  // round-trip through GHL reliably. The marker is stripped on read.
+  productBody.description = packDescription(description, image, images);
   if (image)                productBody.image = image;
-  if (Array.isArray(images) && images.length) {
-    productBody.medias = images.map(url => ({ url, type: 'image', isFeatured: false }));
-  }
   if (availableQty != null) productBody.availableQuantity = Number(availableQty);
 
   const created = await ghlRequest('/products/', { method: 'POST', body: productBody });
@@ -98,7 +132,7 @@ async function handleCreate(req, res, locationId) {
       price: Number(price), priceId,
       availableQty: availableQty != null ? Number(availableQty) : null,
       productType: type,
-    }
+    },
   });
 }
 
@@ -109,11 +143,9 @@ async function handleUpdate(req, res, locationId) {
 
   const type = VALID_PRODUCT_TYPES.includes(productType) ? productType : 'DIGITAL';
   const productBody = { name, locationId, productType: type };
-  if (description !== undefined) productBody.description = description;
+  // Same description-embedded marker scheme as handleCreate.
+  productBody.description = packDescription(description, image, images);
   if (image)                     productBody.image = image;
-  if (Array.isArray(images)) {
-    productBody.medias = images.map(url => ({ url, type: 'image', isFeatured: false }));
-  }
   if (availableQty != null) productBody.availableQuantity = Number(availableQty);
 
   await ghlRequest(`/products/${id}`, { method: 'PUT', body: productBody });
