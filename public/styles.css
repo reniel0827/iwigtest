@@ -174,12 +174,19 @@ img { max-width: 100%; display: block; }
     radial-gradient(ellipse at 10% 90%, rgba(138,111,71,0.10), transparent 50%);
   pointer-events: none;
 }
+.hero-imaged .hero-bg {
+  background:
+    linear-gradient(90deg, rgba(245,241,234,0.92) 0%, rgba(245,241,234,0.78) 35%, rgba(245,241,234,0.35) 70%, rgba(245,241,234,0.15) 100%),
+    url('https://assets.cdn.filesafe.space/SM2KOkKRoi18sNhNIVl2/media/68dedd9785bf79dfcd282b57.png') center/cover no-repeat;
+}
+.hero-mobile-img { display: none; }
 .hero-grid {
   position: relative;
   max-width: 1320px; margin: 0 auto;
   display: grid; grid-template-columns: 1.3fr 1fr;
   gap: 5rem; align-items: center;
 }
+.hero-imaged .hero-grid { grid-template-columns: minmax(0, 640px); }
 .cta-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
 
 .hero-card {
@@ -219,9 +226,48 @@ img { max-width: 100%; display: block; }
   content: '— '; color: var(--gold-soft); margin-right: 0.4rem;
 }
 
+.hero-card-bottom {
+  position: relative;
+  max-width: 1320px;
+  margin: 5rem auto 0;
+  padding: 2rem 2.5rem;
+}
+.hero-card-bottom .hero-card-inner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 3rem;
+  row-gap: 0.4rem;
+  align-items: center;
+}
+.hero-card-bottom .card-eyebrow { margin-bottom: 0.3rem; grid-column: 1; }
+.hero-card-bottom .card-title { margin-bottom: 0; grid-column: 1; font-size: 1.5rem; }
+.hero-card-bottom .card-list {
+  grid-column: 2; grid-row: 1 / span 2;
+  display: flex; flex-wrap: wrap; gap: 0.4rem 2rem;
+}
+.hero-card-bottom .card-list li {
+  border-top: 0; padding: 0.25rem 0; font-size: 0.88rem;
+}
+
 @media (max-width: 880px) {
   .hero-grid { grid-template-columns: 1fr; gap: 3rem; }
-  .hero { padding: 3rem 1.5rem 4rem; }
+  .hero { padding: 0 0 4rem; }
+  .hero-imaged .hero-bg { background: none; }
+  .hero-mobile-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-bottom: 2.5rem;
+  }
+  .hero-imaged .hero-grid { padding: 0 1.5rem; }
+  .hero-card-bottom { margin: 3rem 1.5rem 0; padding: 1.75rem; }
+  .hero-card-bottom .hero-card-inner {
+    grid-template-columns: 1fr;
+    row-gap: 1rem;
+  }
+  .hero-card-bottom .card-list { grid-column: 1; grid-row: auto; flex-direction: column; gap: 0; }
+  .hero-card-bottom .card-list li { border-top: 1px solid rgba(245,241,234,0.12); padding: 0.6rem 0; }
+  .hero-card-bottom .card-list li:first-child { border-top: 0; }
 }
 
 /* ============== BUTTONS ============== */
