@@ -2,9 +2,21 @@
    Creates a new contact in GoHighLevel with the wholesale-pending tag.
    Handles duplicates gracefully and returns useful error info. */
 
-const { ghlRequest, env, TAGS, hashPassword } = require('./_ghl');
+const { ghlRequest, env, TAGS, hashPassword, getCustomFieldValue, customFieldId } = require('./_ghl');
 
 const MIN_PASSWORD_LEN = 8;
+
+/** Re-fetch the contact and check the password hash field has a value. */
+async function passwordSaved(contactId, fieldId) {
+  try {
+    const full = await ghlRequest(`/contacts/${contactId}`);
+    const value = getCustomFieldValue(full.contact || full, fieldId);
+    return typeof value === 'string' && value.startsWith('scrypt$');
+  } catch (e) {
+    console.log('[signup] verify fetch failed:', e.message);
+    return false;
+  }
+}
 
 /** Normalize phone to E.164-ish (+digits). GHL is strict about phone format. */
 function normalizePhone(raw) {
@@ -45,7 +57,7 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LEN} characters.` });
     }
 
-    const cfPasswordId = process.env.CF_PASSWORD_HASH;
+    const cfPasswordId = await customFieldId('CF_PASSWORD_HASH');
     if (!cfPasswordId) {
       return res.status(500).json({ error: 'Server is not configured for passwords (missing CF_PASSWORD_HASH).' });
     }
@@ -80,10 +92,14 @@ module.exports = async (req, res) => {
     Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
     // optional custom fields (only sent if env IDs configured)
+    const optionalId = (name) => customFieldId(name).catch(e => { console.log('[signup]', e.message); return ''; });
+    const [cfBusinessType, cfYears, cfNotes] = await Promise.all(
+      ['CF_BUSINESS_TYPE', 'CF_YEARS_IN_BUSINESS', 'CF_NOTES'].map(optionalId)
+    );
     const cf = [];
-    if (process.env.CF_BUSINESS_TYPE      && businessType)    cf.push({ id: process.env.CF_BUSINESS_TYPE,      value: businessType });
-    if (process.env.CF_YEARS_IN_BUSINESS  && yearsInBusiness) cf.push({ id: process.env.CF_YEARS_IN_BUSINESS,  value: yearsInBusiness });
-    if (process.env.CF_NOTES              && notes)           cf.push({ id: process.env.CF_NOTES,              value: notes });
+    if (cfBusinessType && businessType)    cf.push({ id: cfBusinessType, value: businessType });
+    if (cfYears        && yearsInBusiness) cf.push({ id: cfYears,        value: yearsInBusiness });
+    if (cfNotes        && notes)           cf.push({ id: cfNotes,        value: notes });
     cf.push({ id: cfPasswordId, value: passwordHash });
     payload.customFields = cf;
 
@@ -133,6 +149,25 @@ module.exports = async (req, res) => {
       } else {
         throw err;
       }
+    }
+
+    // ====== confirm the password hash actually landed ======
+    // GHL silently ignores custom field ids it doesn't recognise, so read it back.
+    let saved = await passwordSaved(contact.id, cfPasswordId);
+    if (!saved) {
+      console.log('[signup] password hash missing after save; retrying with field_value');
+      await ghlRequest(`/contacts/${contact.id}`, {
+        method: 'PUT',
+        body: { customFields: [{ id: cfPasswordId, field_value: passwordHash }] }
+      }).catch(e => console.log('[signup] password retry failed:', e.message));
+      saved = await passwordSaved(contact.id, cfPasswordId);
+    }
+    if (!saved) {
+      console.error('[signup] password NOT saved. Check that CF_PASSWORD_HASH is the custom field ID (not its key) from location', locationId);
+      return res.status(500).json({
+        error: 'Your application was received, but your password could not be saved. Please contact us.',
+        details: { hint: 'CF_PASSWORD_HASH does not match a Contact custom field in this location.', contactId: contact.id }
+      });
     }
 
     console.log('[signup] success contactId:', contact?.id, 'duplicate:', wasDuplicate);

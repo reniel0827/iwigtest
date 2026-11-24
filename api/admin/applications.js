@@ -1,7 +1,7 @@
 /* GET /api/admin/applications?status=pending|approved|denied
    Returns wholesale applicants matching the requested status. */
 
-const { ghlRequest, env, TAGS } = require('../_ghl');
+const { ghlRequest, env, TAGS, customFieldId } = require('../_ghl');
 const { verifyAdminToken } = require('./_auth');
 
 const TAG_MAP = {
@@ -32,6 +32,11 @@ module.exports = async (req, res) => {
 
     const contacts = data.contacts || data.data || [];
 
+    const optionalId = (name) => customFieldId(name).catch(e => { console.log('[applications]', e.message); return ''; });
+    const [cfBusinessType, cfYears, cfNotes] = await Promise.all(
+      ['CF_BUSINESS_TYPE', 'CF_YEARS_IN_BUSINESS', 'CF_NOTES'].map(optionalId)
+    );
+
     const applicants = contacts.map(c => {
       const cf = (c.customFields || []).reduce((m, f) => {
         if (f.id) m[f.id] = f.value || f.fieldValue;
@@ -47,9 +52,9 @@ module.exports = async (req, res) => {
         phone: c.phone,
         businessName:    c.companyName,
         businessAddress: c.address1 || '',
-        businessType:    process.env.CF_BUSINESS_TYPE     ? cf[process.env.CF_BUSINESS_TYPE]     : '',
-        yearsInBusiness: process.env.CF_YEARS_IN_BUSINESS ? cf[process.env.CF_YEARS_IN_BUSINESS] : '',
-        notes:           process.env.CF_NOTES             ? cf[process.env.CF_NOTES]             : '',
+        businessType:    cfBusinessType ? cf[cfBusinessType] : '',
+        yearsInBusiness: cfYears        ? cf[cfYears]        : '',
+        notes:           cfNotes        ? cf[cfNotes]        : '',
         tags: c.tags || [],
         status,
         createdAt: c.dateAdded || c.createdAt

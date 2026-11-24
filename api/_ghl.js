@@ -74,7 +74,29 @@ function getCustomFieldValue(contact, fieldId) {
   return undefined;
 }
 
+/* Resolve a CF_* env var to a GHL custom field ID.
+   Accepts either the field ID itself, or its key as shown in GHL
+   ("contact.wholesale_password_hash" or "{{ contact.wholesale_password_hash }}").
+   Keys are looked up once per warm function instance. */
+const fieldIdByKey = {};
+async function customFieldId(envName) {
+  const raw = String(process.env[envName] || '').trim();
+  if (!raw) return '';
+  const key = raw.replace(/^\{\{\s*/, '').replace(/\s*\}\}$/, '').trim();
+  if (!key.includes('.')) return key; // already an ID
+  if (!fieldIdByKey[key]) {
+    const locationId = env('GHL_LOCATION_ID');
+    const data = await ghlRequest(`/locations/${locationId}/customFields`, { query: { model: 'contact' } });
+    for (const f of data.customFields || []) {
+      if (f.fieldKey) fieldIdByKey[f.fieldKey] = f.id;
+    }
+  }
+  const id = fieldIdByKey[key];
+  if (!id) throw new Error(`Custom field "${key}" (from ${envName}) was not found in this GHL location.`);
+  return id;
+}
+
 module.exports = {
   ghlRequest, env, TAGS, GHL_BASE, API_VERSION,
-  hashPassword, verifyPassword, getCustomFieldValue
+  hashPassword, verifyPassword, getCustomFieldValue, customFieldId
 };

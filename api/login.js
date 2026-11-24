@@ -2,7 +2,7 @@
    Verifies email + password, then checks contact tags for wholesale status.
    Returns { status: 'approved' | 'pending' | 'denied' | 'unknown' } */
 
-const { ghlRequest, env, TAGS, verifyPassword, getCustomFieldValue } = require('./_ghl');
+const { ghlRequest, env, TAGS, verifyPassword, getCustomFieldValue, customFieldId } = require('./_ghl');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Email required.' });
     if (!password) return res.status(400).json({ error: 'Password required.' });
 
-    const cfPasswordId = process.env.CF_PASSWORD_HASH;
+    const cfPasswordId = await customFieldId('CF_PASSWORD_HASH');
     if (!cfPasswordId) {
       return res.status(500).json({ error: 'Server is not configured for passwords (missing CF_PASSWORD_HASH).' });
     }
