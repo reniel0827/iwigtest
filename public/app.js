@@ -197,9 +197,7 @@ $('#loginForm').addEventListener('submit', async (e) => {
 // ============== PRODUCTS ==============
 
 async function loadProducts() {
-  $('#portalGreeting').textContent = state.user?.firstName
-    ? `Welcome, ${state.user.firstName}.`
-    : 'Welcome.';
+  $('#portalGreeting').textContent = 'The Collection.';
 
   if (state.products.length) return renderProducts(state.products);
 
@@ -476,7 +474,7 @@ function renderCart() {
   const checkoutBtn = $('#checkoutBtn');
 
   if (!state.cart.length) {
-    wrap.innerHTML = '<div class="cart-empty">Your cart is empty.</div>';
+    wrap.innerHTML = '<div class="cart-empty">Your order is empty.</div>';
     totals.innerHTML = '';
     notice.textContent = '';
     checkoutBtn.disabled = true;
